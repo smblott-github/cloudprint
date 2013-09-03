@@ -337,7 +337,7 @@ def process_job(cups_connection, cpp, printer, job):
         cpp.fail_job(job['id'])
         LOGGER.error('ERROR ' + job['title'].encode('unicode-escape'))
 
-def process_jobs(cups_connection, cpp, printers):
+def process_jobs(cups_connection, cpp, printers, eexit):
     while True:
         try:
             for printer in printers:
@@ -345,8 +345,12 @@ def process_jobs(cups_connection, cpp, printers):
                     process_job(cups_connection, cpp, printer, job)
             wait_for_new_job(file(cpp.xmpp_auth_path).read())
         except Exception, e:
-            LOGGER.exception('ERROR: Could not Connect to Cloud Service. Will Try again in 60 Seconds')
-            time.sleep(60)
+            if eexit:
+               LOGGER.exception('ERROR: Could not Connect to Cloud Service. Exiting.')
+               sys.exit(1)
+            else:
+               LOGGER.exception('ERROR: Could not Connect to Cloud Service. Will Try again in 60 Seconds')
+               time.sleep(60)
 
 def wait_for_new_job(sasl_token):
     # https://developers.google.com/cloud-print/docs/rawxmpp
@@ -378,15 +382,17 @@ def usage():
     print '-d\t\t: enable daemon mode (requires the daemon module)'
     print '-l\t\t: logout of the google account'
     print '-p pid_file\t: path to write the pid to (default cloudprint.pid)'
+    print '-e\t\t: exit on connection error (non-daemon mode only)'
     print '-a account_file\t: path to google account ident data (default ~/.cloudprintauth)'
     print '\t\t account_file format:\t <Google username>'
     print '\t\t\t\t\t <Google password>'
     print '-h\t\t: display this help'
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dlhp:a:')
+    opts, args = getopt.getopt(sys.argv[1:], 'dlhep:a:')
     daemon = False
     logout = False
+    eexit = False
     pidfile = None
     authfile = None
     saslauthfile = None
@@ -395,6 +401,8 @@ def main():
             daemon = True
         elif o == '-l':
             logout = True
+        elif o == '-e':
+            eexit = True
         elif o == '-p':
             pidfile = a
         elif o == '-a':
@@ -474,7 +482,7 @@ def main():
         daemon_runner = runner.DaemonRunner(app)
         daemon_runner.do_action()
     else:
-        process_jobs(cups_connection, cpp, printers)
+        process_jobs(cups_connection, cpp, printers, eexit)
 
 if __name__ == '__main__':
     main()
