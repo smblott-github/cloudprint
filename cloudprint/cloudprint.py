@@ -277,7 +277,7 @@ def sync_printers(cups_connection, cpp):
 
     #New printers
     for printer_name in local_printer_names - remote_printer_names:
-        try:
+              try:
             ppd_file = open(cups_connection.getPPD(printer_name))
             ppd = ppd_file.read()
             ppd_file.close()
@@ -386,15 +386,17 @@ def usage():
     print '-a account_file\t: path to google account ident data (default ~/.cloudprintauth)'
     print '\t\t account_file format:\t <Google username>'
     print '\t\t\t\t\t <Google password>'
+    print '-c\t\t: establish and store login credentials, then exit'
     print '-h\t\t: display this help'
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dlhep:a:')
+    opts, args = getopt.getopt(sys.argv[1:], 'dlhp:a:c')
     daemon = False
     logout = False
     eexit = False
     pidfile = None
     authfile = None
+    authonly = False
     saslauthfile = None
     for o, a in opts:
         if o == '-d':
@@ -408,6 +410,8 @@ def main():
         elif o == '-a':
             authfile = a
             saslauthfile = authfile+'.sasl'
+        elif o == '-c':
+            authonly = True
         elif o =='-h':
             usage()
             sys.exit()
@@ -436,16 +440,12 @@ def main():
 
     # Check if authentification is needed
     if not cpp.get_saved_auth():
-        if authfile:
-            if os.path.exists(authfile):
-                account_file = open(authfile)
-                cpp.username = account_file.next().rstrip()
-                cpp.password = account_file.next().rstrip()
-                account_file.close()
+        if authfile and os.path.exists(authfile):
+            account_file = open(authfile)
+            cpp.username = account_file.next().rstrip()
+            cpp.password = account_file.next().rstrip()
+            account_file.close()
 
-            else:
-                LOGGER.info('Unable to find account file')
-                return
         else:
           cpp.username = raw_input('Google username: ')
           cpp.password = getpass.getpass()
@@ -464,6 +464,9 @@ def main():
                 raise
             #reset the stored auth
             cpp.set_auth('')
+
+    if authonly:
+        sys.exit(0)
 
     printers = cpp.get_printers()
 
